@@ -1,0 +1,65 @@
+{
+    "elements": [
+        {
+            "type": "ValidationTextBox",
+            "name": "Host",
+            "caption": "IP-Adresse / Hostname"
+        },
+        {
+            "type": "PasswordTextBox",
+            "name": "APIKey",
+            "caption": "API-Key"
+        },
+        {
+            "type": "ValidationTextBox",
+            "name": "DeviceGuid",
+            "caption": "Device-GUID"
+        },
+        {
+            "type": "CheckBox",
+            "name": "HasTilt",
+            "caption": "Lamellensteuerung vorhanden (ESB64-IPM)"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "UpdateInterval",
+            "caption": "Aktualisierungsintervall (Sekunden, 0 = aus)",
+            "minimum": 0,
+            "maximum": 86400
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Jetzt aktualisieren",
+            "onClick": "ELTAKOIPBL_Update($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "Auf (0 %)",
+            "onClick": "ELTAKOIPBL_SetPosition($id, 0);"
+        },
+        {
+            "type": "Button",
+            "caption": "Zu (100 %)",
+            "onClick": "ELTAKOIPBL_SetPosition($id, 100);"
+        }
+    ],
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "Aktiv"
+        },
+        {
+            "code": 104,
+            "icon": "inactive",
+            "caption": "Nicht konfiguriert (Host, API-Key und Device-GUID erforderlich)"
+        },
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Gerät nicht erreichbar oder Anmeldung fehlgeschlagen"
+        }
+    ]
+}

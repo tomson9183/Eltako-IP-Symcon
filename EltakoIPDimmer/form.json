@@ -1,0 +1,60 @@
+{
+    "elements": [
+        {
+            "type": "ValidationTextBox",
+            "name": "Host",
+            "caption": "IP-Adresse / Hostname"
+        },
+        {
+            "type": "PasswordTextBox",
+            "name": "APIKey",
+            "caption": "API-Key"
+        },
+        {
+            "type": "ValidationTextBox",
+            "name": "DeviceGuid",
+            "caption": "Device-GUID"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "UpdateInterval",
+            "caption": "Aktualisierungsintervall (Sekunden, 0 = aus)",
+            "minimum": 0,
+            "maximum": 86400
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Jetzt aktualisieren",
+            "onClick": "ELTAKOIPDIM_Update($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "100 %",
+            "onClick": "ELTAKOIPDIM_SetBrightness($id, 100);"
+        },
+        {
+            "type": "Button",
+            "caption": "Aus",
+            "onClick": "ELTAKOIPDIM_SetBrightness($id, 0);"
+        }
+    ],
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "Aktiv"
+        },
+        {
+            "code": 104,
+            "icon": "inactive",
+            "caption": "Nicht konfiguriert (Host, API-Key und Device-GUID erforderlich)"
+        },
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Gerät nicht erreichbar oder Anmeldung fehlgeschlagen"
+        }
+    ]
+}

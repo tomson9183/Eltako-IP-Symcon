@@ -1,0 +1,17 @@
+{
+    "id": "{A2D274B1-F2F2-4F45-91EC-44B41D0F2B5A}",
+    "name": "EltakoIPBlind",
+    "type": 3,
+    "vendor": "Eltako",
+    "aliases": [
+        "Eltako IP Rollladenaktor",
+        "ESB62NP-IP",
+        "ESB64NP-IPM"
+    ],
+    "url": "https://github.com/tomson9183/Eltako-IP-Symcon",
+    "hidden": false,
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "ELTAKOIPBL"
+}

@@ -1,0 +1,16 @@
+{
+    "id": "{D3BCB489-0067-4B7A-BD6E-3BF09E3C9FB1}",
+    "name": "EltakoIPConfigurator",
+    "type": 4,
+    "vendor": "Eltako",
+    "aliases": [
+        "Eltako IP Konfigurator",
+        "Eltako WLAN Konfigurator"
+    ],
+    "url": "https://github.com/tomson9183/Eltako-IP-Symcon",
+    "hidden": false,
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "ELTAKOIPCFG"
+}

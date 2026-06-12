@@ -1,0 +1,89 @@
+{
+    "elements": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "1. Geräte im Netzwerk suchen",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "RowLayout",
+                    "name": "ScanField",
+                    "items": [
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "ScanSubnet",
+                            "caption": "Subnetz (z. B. 192.168.1.)",
+                            "width": "240px"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Netzwerk durchsuchen",
+                            "onClick": "ELTAKOIPCFG_ScanNetwork($id);"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "name": "ScanProgress",
+                    "caption": "Suche läuft, bitte warten …",
+                    "visible": false
+                },
+                {
+                    "type": "List",
+                    "name": "DiscoveredDevices",
+                    "caption": "Gefundene Geräte",
+                    "rowCount": 6,
+                    "add": false,
+                    "delete": false,
+                    "columns": [
+                        {
+                            "caption": "IP-Adresse",
+                            "name": "Host",
+                            "width": "200px"
+                        },
+                        {
+                            "caption": "Produkt",
+                            "name": "Product",
+                            "width": "auto"
+                        },
+                        {
+                            "caption": "Info",
+                            "name": "Version",
+                            "width": "160px"
+                        }
+                    ],
+                    "values": []
+                },
+                {
+                    "type": "Button",
+                    "caption": "Markierte IP übernehmen",
+                    "onClick": "ELTAKOIPCFG_SelectDiscovered($id, $DiscoveredDevices['Host']);"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "2. Am Gerät anmelden",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "ValidationTextBox",
+                    "name": "Host",
+                    "caption": "IP-Adresse / Hostname"
+                },
+                {
+                    "type": "PasswordTextBox",
+                    "name": "PoP",
+                    "caption": "Eltako-Code (PoP, auf dem Gerät aufgedruckt)"
+                },
+                {
+                    "type": "Button",
+                    "caption": "Anmelden & Kanäle laden",
+                    "onClick": "ELTAKOIPCFG_Login($id, $Host, $PoP);"
+                }
+            ]
+        }
+    ],
+    "actions": [],
+    "status": []
+}

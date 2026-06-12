@@ -1,0 +1,17 @@
+{
+    "id": "{29326ADC-B15D-4BB4-AB0A-4E3323694079}",
+    "name": "EltakoIPDimmer",
+    "type": 3,
+    "vendor": "Eltako",
+    "aliases": [
+        "Eltako IP Dimmer",
+        "EUD62NPN-IP",
+        "EUD64NPN-IPM"
+    ],
+    "url": "https://github.com/tomson9183/Eltako-IP-Symcon",
+    "hidden": false,
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "ELTAKOIPDIM"
+}
