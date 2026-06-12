@@ -1,12 +1,12 @@
 {
     "id": "{C615E551-202D-4497-AB6D-8B3ABFB68024}",
+    "name": "Eltako IP",
     "author": "tomson9183",
     "url": "https://github.com/tomson9183/Eltako-IP-Symcon",
-    "name": "Eltako IP",
-    "description": "Lokale IP-Steuerung der Eltako WLAN-Geräte (Baureihe 62-IP / 64-IPM): Schaltaktoren, Dimmer und Rollladenaktoren. Mit Netzwerk-Konfigurator zur automatischen Suche im lokalen Netz.",
+    "compatibility": {
+        "version": "7.0"
+    },
     "version": "1.0",
     "build": 1,
-    "compatibility": {
-        "version": "9.0"
-    }
+    "date": 1781277014
 }
