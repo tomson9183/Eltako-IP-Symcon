@@ -108,20 +108,52 @@ class EltakoIPConfigurator extends IPSModule
             return;
         }
 
-        $res = $this->EltakoRequest($Host, 'GET', '/.well-known/eltako/devices', null);
+        // Mehrere mögliche API-Pfade abklopfen, um die tatsächliche API der Geräte
+        // (62-IP vs. 64-IPM, evtl. abweichende Firmware/Version) zu erkennen.
+        $paths = [
+            '/.well-known/eltako/devices',
+            '/.well-known/eltako',
+            '/api/v0/devices',
+            '/api/v1/devices',
+            '/api/v0',
+            '/api',
+            '/',
+        ];
 
-        if ($res['code'] === 200 && is_array($res['body']) && isset($res['body']['api'])) {
-            $version = $res['body']['api']['version'] ?? '?';
-            echo sprintf($this->Translate("OK: Eltako IP device reachable at %s (API %s)."), $Host, $version);
-            return;
+        $lines = [];
+        $lines[] = sprintf($this->Translate('Diagnosis for %s (HTTPS, port 443):'), $Host);
+        $detected = false;
+
+        foreach ($paths as $path) {
+            $res = $this->EltakoRequest($Host, 'GET', $path, null);
+
+            if ($res['error'] !== '') {
+                $lines[] = sprintf('  %-30s -> %s', $path, $res['error']);
+                continue;
+            }
+
+            $hint = '';
+            // 401 auf einem API-Pfad: Endpunkt existiert, benötigt Auth -> Eltako-API.
+            if ($res['code'] === 401 && strpos($path, '/api') === 0) {
+                $hint = '   <== ' . $this->Translate('Eltako API detected (needs login)');
+                $detected = true;
+            }
+            // 200 mit api-Struktur -> öffentlicher Eltako-Endpunkt.
+            if ($res['code'] === 200 && is_array($res['body']) && isset($res['body']['api'])) {
+                $hint = '   <== ' . $this->Translate('Eltako device detected');
+                $detected = true;
+            }
+            $lines[] = sprintf('  HTTP %-3d %-30s%s', $res['code'], $path, $hint);
         }
 
-        if ($res['error'] !== '') {
-            echo sprintf($this->Translate("Not reachable: %s\nError: %s"), $Host, $res['error']);
-            return;
+        $lines[] = '';
+        if ($detected) {
+            $lines[] = $this->Translate('Eltako device confirmed. You can log in with the Eltako code (PoP).');
+        } else {
+            $lines[] = $this->Translate('No Eltako API found on this host. Either it is not an Eltako device or it uses a different firmware/path. Please send this output.');
         }
 
-        echo sprintf($this->Translate("Response from %s, but no Eltako device detected (HTTP %d)."), $Host, $res['code']);
+        echo implode("\n", $lines);
     }
 
     /**
