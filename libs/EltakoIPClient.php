@@ -311,6 +311,21 @@ trait EltakoIPClient
      *
      * @return array<string, array{name:string, model:string}>
      */
+    /** mDNS-Dienst-Typen, unter denen sich Eltako/HomeKit/Matter-Geräte ankündigen können. */
+    private static $ELTAKO_MDNS_TYPES = ['_hap._tcp', '_eltako._tcp', '_matter._tcp'];
+
+    /**
+     * Ermittelt die ID der DNS-SD-Control-Instanz (oder 0, wenn nicht vorhanden).
+     */
+    protected function EltakoDnssdInstance(): int
+    {
+        $ids = @IPS_GetInstanceListByModuleID(self::$DNSSD_MODULE_GUID);
+        if (is_array($ids) && count($ids) > 0) {
+            return (int) $ids[0];
+        }
+        return 0;
+    }
+
     protected function EltakoQueryHapNames(): array
     {
         $map = [];
@@ -318,34 +333,38 @@ trait EltakoIPClient
         if (!function_exists('ZC_QueryServiceType') || !function_exists('ZC_QueryService')) {
             return $map;
         }
-
-        $ids = @IPS_GetInstanceListByModuleID(self::$DNSSD_MODULE_GUID);
-        if (!is_array($ids) || count($ids) === 0) {
-            return $map;
-        }
-        $dnssd = (int) $ids[0];
-
-        $services = @ZC_QueryServiceType($dnssd, '_hap._tcp', 'local.');
-        if (!is_array($services)) {
+        $dnssd = $this->EltakoDnssdInstance();
+        if ($dnssd === 0) {
             return $map;
         }
 
-        foreach ($services as $svc) {
-            $name = $svc['Name'] ?? '';
-            if ($name === '') {
+        foreach (self::$ELTAKO_MDNS_TYPES as $type) {
+            $services = @ZC_QueryServiceType($dnssd, $type, 'local.');
+            if (!is_array($services)) {
                 continue;
             }
 
-            $details = @ZC_QueryService($dnssd, $name, '_hap._tcp', 'local.');
-            if (!is_array($details)) {
-                continue;
-            }
+            foreach ($services as $svc) {
+                $name = $svc['Name'] ?? '';
+                if ($name === '') {
+                    continue;
+                }
 
-            foreach ($details as $d) {
-                $model = $this->EltakoExtractTxt($d['TXTRecords'] ?? [], 'md');
-                foreach ((array) ($d['IPv4'] ?? []) as $ip) {
-                    if (is_string($ip) && $ip !== '') {
-                        $map[$ip] = ['name' => (string) $name, 'model' => $model];
+                $details = @ZC_QueryService($dnssd, $name, $type, 'local.');
+                if (!is_array($details)) {
+                    continue;
+                }
+
+                foreach ($details as $d) {
+                    $txt   = $d['TXTRecords'] ?? [];
+                    $model = $this->EltakoExtractTxt($txt, 'md');
+                    if ($model === '') {
+                        $model = $this->EltakoExtractTxt($txt, 'model');
+                    }
+                    foreach ((array) ($d['IPv4'] ?? []) as $ip) {
+                        if (is_string($ip) && $ip !== '' && !isset($map[$ip])) {
+                            $map[$ip] = ['name' => (string) $name, 'model' => $model];
+                        }
                     }
                 }
             }

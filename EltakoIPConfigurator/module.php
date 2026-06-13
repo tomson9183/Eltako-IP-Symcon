@@ -188,27 +188,49 @@ class EltakoIPConfigurator extends IPSModule
      */
     public function ShowMDNS(): void
     {
-        if (!function_exists('ZC_QueryServiceType')) {
+        if (!function_exists('ZC_QueryServiceType') || !function_exists('ZC_QueryServiceTypes')) {
             echo $this->Translate('mDNS function (ZC_QueryServiceType) is not available on this system.');
             return;
         }
 
-        $ids = @IPS_GetInstanceListByModuleID('{780B2D48-916C-4D59-AD35-5A429B2355A5}');
-        if (!is_array($ids) || count($ids) === 0) {
+        $dnssd = $this->EltakoDnssdInstance();
+        if ($dnssd === 0) {
             echo $this->Translate('No DNS-SD control instance found.');
             return;
         }
 
-        $hap = $this->EltakoQueryHapNames();
-        if (count($hap) === 0) {
-            echo $this->Translate("No HomeKit (_hap._tcp) services found via mDNS.\nIf Symcon runs in a Docker container, mDNS usually does not work without host networking.");
+        $lines = [];
+
+        // 1) Alle sichtbaren Dienst-Typen auflisten -> zeigt, ob mDNS überhaupt ankommt.
+        $types = @ZC_QueryServiceTypes($dnssd);
+        $typeNames = [];
+        if (is_array($types)) {
+            foreach ($types as $t) {
+                $typeNames[] = trim(($t['Name'] ?? '') . '.' . trim((string) ($t['Type'] ?? ''), '.'));
+            }
+        }
+
+        if (count($typeNames) === 0) {
+            $lines[] = $this->Translate("mDNS reaches Symcon, but NO service types are visible at all.\nThis almost always means Symcon cannot receive multicast (e.g. Docker without host networking, or a different VLAN than the devices).");
+            echo implode("\n", $lines);
             return;
         }
 
-        $lines = [$this->Translate('HomeKit devices found via mDNS:')];
-        foreach ($hap as $ip => $d) {
-            $lines[] = sprintf('  %-15s  %s  [%s]', $ip, $d['name'], $d['model']);
+        $lines[] = $this->Translate('Visible mDNS service types:');
+        $lines[] = '  ' . implode("\n  ", $typeNames);
+        $lines[] = '';
+
+        // 2) Konkret die für Eltako relevanten Geräte mit Name/Modell.
+        $hap = $this->EltakoQueryHapNames();
+        if (count($hap) === 0) {
+            $lines[] = $this->Translate('No HomeKit/Eltako/Matter device names found. The devices may use a different service type (see list above) or are not advertising names.');
+        } else {
+            $lines[] = $this->Translate('Devices found via mDNS:');
+            foreach ($hap as $ip => $d) {
+                $lines[] = sprintf('  %-15s  %s  [%s]', $ip, $d['name'], $d['model']);
+            }
         }
+
         echo implode("\n", $lines);
     }
 
