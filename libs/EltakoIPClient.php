@@ -297,6 +297,85 @@ trait EltakoIPClient
         return $found;
     }
 
+    /** Modul-GUID der Symcon DNS-SD-Control (Bonjour/mDNS, Funktions-Prefix "ZC"). */
+    private static $DNSSD_MODULE_GUID = '{780B2D48-916C-4D59-AD35-5A429B2355A5}';
+
+    /**
+     * Fragt per mDNS/Bonjour die HomeKit-Dienste (_hap._tcp) im Netzwerk ab und liefert
+     * eine Zuordnung IP-Adresse => [name, model].
+     *
+     * Genau diese Daten nutzen auch die Eltako-App und Apple Home: der Dienstname ist der
+     * (in Apple Home) vergebene Gerätename, das TXT-Feld "md" enthält das Modell
+     * (z. B. ESR62NP-IP). Voraussetzung: Symcon kann mDNS empfangen (nicht in einem
+     * Docker-Container ohne Host-Netzwerk).
+     *
+     * @return array<string, array{name:string, model:string}>
+     */
+    protected function EltakoQueryHapNames(): array
+    {
+        $map = [];
+
+        if (!function_exists('ZC_QueryServiceType') || !function_exists('ZC_QueryService')) {
+            return $map;
+        }
+
+        $ids = @IPS_GetInstanceListByModuleID(self::$DNSSD_MODULE_GUID);
+        if (!is_array($ids) || count($ids) === 0) {
+            return $map;
+        }
+        $dnssd = (int) $ids[0];
+
+        $services = @ZC_QueryServiceType($dnssd, '_hap._tcp', 'local.');
+        if (!is_array($services)) {
+            return $map;
+        }
+
+        foreach ($services as $svc) {
+            $name = $svc['Name'] ?? '';
+            if ($name === '') {
+                continue;
+            }
+
+            $details = @ZC_QueryService($dnssd, $name, '_hap._tcp', 'local.');
+            if (!is_array($details)) {
+                continue;
+            }
+
+            foreach ($details as $d) {
+                $model = $this->EltakoExtractTxt($d['TXTRecords'] ?? [], 'md');
+                foreach ((array) ($d['IPv4'] ?? []) as $ip) {
+                    if (is_string($ip) && $ip !== '') {
+                        $map[$ip] = ['name' => (string) $name, 'model' => $model];
+                    }
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Liest einen TXT-Record-Wert ($key) aus einer mDNS-TXT-Liste. Unterstützt sowohl
+     * eine Liste von "key=value"-Strings als auch ein assoziatives Array.
+     */
+    private function EltakoExtractTxt($txt, string $key): string
+    {
+        if (!is_array($txt)) {
+            return '';
+        }
+        // Assoziatives Array (key => value).
+        if (isset($txt[$key])) {
+            return (string) $txt[$key];
+        }
+        // Liste von "key=value"-Strings.
+        foreach ($txt as $entry) {
+            if (is_string($entry) && stripos($entry, $key . '=') === 0) {
+                return substr($entry, strlen($key) + 1);
+            }
+        }
+        return '';
+    }
+
     /**
      * Versucht das lokale /24-Subnetz des Symcon-Servers zu ermitteln.
      * Fällt auf 192.168.0. zurück, wenn keine Bestimmung möglich ist.

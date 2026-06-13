@@ -64,21 +64,39 @@ class EltakoIPConfigurator extends IPSModule
         $found = $this->EltakoScanSubnet($subnet);
         $this->UpdateFormField('ScanProgress', 'visible', false);
 
+        // Gerätenamen/Modelle per HomeKit-mDNS (_hap._tcp) ermitteln (wie Eltako-App/Apple Home).
+        $hap = $this->EltakoQueryHapNames();
+
         $rows = [];
         foreach ($found as $entry) {
+            $host     = $entry['host'];
             $info     = $entry['info'];
             $hostname = $entry['hostname'] ?? '';
 
-            // Bezeichnung: bevorzugt der (Reverse-DNS-)Hostname, sonst der Produktname
-            // aus einer evtl. offenen Antwort, sonst generisch "Eltako IP".
-            $name = $hostname;
+            // Bezeichnung bevorzugt aus mDNS (Name + Modell), sonst Reverse-DNS-Hostname,
+            // sonst generisch.
+            $name = '';
+            if (isset($hap[$host])) {
+                $hapName  = trim((string) ($hap[$host]['name'] ?? ''));
+                $hapModel = trim((string) ($hap[$host]['model'] ?? ''));
+                if ($hapName !== '' && $hapModel !== '' && stripos($hapName, $hapModel) === false) {
+                    $name = $hapName . ' (' . $hapModel . ')';
+                } elseif ($hapModel !== '') {
+                    $name = $hapModel;
+                } else {
+                    $name = $hapName;
+                }
+            }
+            if ($name === '' && $hostname !== '') {
+                $name = $hostname;
+            }
             if ($name === '') {
                 $name = $info['preferredApp']['name'] ?? 'Eltako IP';
             }
 
             $apiVersion = $info['api']['version'] ?? '';
             $rows[] = [
-                'Host'    => $entry['host'],
+                'Host'    => $host,
                 'Product' => $name,
                 'Version' => $apiVersion !== '' ? 'API ' . $apiVersion : $this->Translate('login required'),
             ];
@@ -161,6 +179,36 @@ class EltakoIPConfigurator extends IPSModule
             $lines[] = $this->Translate('No Eltako API found on this host. Either it is not an Eltako device or it uses a different firmware/path. Please send this output.');
         }
 
+        echo implode("\n", $lines);
+    }
+
+    /**
+     * Zeigt die per mDNS (HomeKit _hap._tcp) gefundenen Geräte mit Name und Modell an.
+     * Dient zur Diagnose der Namensauflösung.
+     */
+    public function ShowMDNS(): void
+    {
+        if (!function_exists('ZC_QueryServiceType')) {
+            echo $this->Translate('mDNS function (ZC_QueryServiceType) is not available on this system.');
+            return;
+        }
+
+        $ids = @IPS_GetInstanceListByModuleID('{780B2D48-916C-4D59-AD35-5A429B2355A5}');
+        if (!is_array($ids) || count($ids) === 0) {
+            echo $this->Translate('No DNS-SD control instance found.');
+            return;
+        }
+
+        $hap = $this->EltakoQueryHapNames();
+        if (count($hap) === 0) {
+            echo $this->Translate("No HomeKit (_hap._tcp) services found via mDNS.\nIf Symcon runs in a Docker container, mDNS usually does not work without host networking.");
+            return;
+        }
+
+        $lines = [$this->Translate('HomeKit devices found via mDNS:')];
+        foreach ($hap as $ip => $d) {
+            $lines[] = sprintf('  %-15s  %s  [%s]', $ip, $d['name'], $d['model']);
+        }
         echo implode("\n", $lines);
     }
 

@@ -58,6 +58,11 @@
                     "type": "Button",
                     "caption": "Markierte IP übernehmen",
                     "onClick": "ELTAKOIPCFG_SelectDiscovered($id, $DiscoveredDevices['Host']);"
+                },
+                {
+                    "type": "Button",
+                    "caption": "mDNS-Geräte anzeigen (Diagnose)",
+                    "onClick": "ELTAKOIPCFG_ShowMDNS($id);"
                 }
             ]
         },
