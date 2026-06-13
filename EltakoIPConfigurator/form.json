@@ -42,7 +42,7 @@
                             "width": "200px"
                         },
                         {
-                            "caption": "Produkt",
+                            "caption": "Gerät / Hostname",
                             "name": "Product",
                             "width": "auto"
                         },

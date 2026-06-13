@@ -273,7 +273,19 @@ trait EltakoIPClient
                             $info = $decoded;
                         }
                     }
-                    $found[] = ['host' => $host, 'info' => $info];
+
+                    // Ohne Anmeldung liefert das Gerät keinen Modellnamen. Als Bezeichnung
+                    // den per Reverse-DNS aufgelösten Hostnamen verwenden (die Fritzbox kennt
+                    // die Gerätenamen). Häufig enthält dieser das Modell, z. B. ESR62NP-IP-xxxx.
+                    $hostname = @gethostbyaddr($host);
+                    if (!is_string($hostname) || $hostname === $host) {
+                        $hostname = '';
+                    } else {
+                        // Lokale Domain-Endung entfernen (z. B. .fritz.box / .local / .lan).
+                        $hostname = preg_replace('/\.(fritz\.box|local|lan|home|home\.arpa)$/i', '', $hostname);
+                    }
+
+                    $found[] = ['host' => $host, 'info' => $info, 'hostname' => $hostname];
                 }
                 curl_multi_remove_handle($multi, $ch);
                 curl_close($ch);

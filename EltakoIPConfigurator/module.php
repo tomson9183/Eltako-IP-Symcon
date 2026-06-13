@@ -66,12 +66,20 @@ class EltakoIPConfigurator extends IPSModule
 
         $rows = [];
         foreach ($found as $entry) {
-            $info = $entry['info'];
-            $app = $info['preferredApp']['name'] ?? 'Eltako IP';
+            $info     = $entry['info'];
+            $hostname = $entry['hostname'] ?? '';
+
+            // Bezeichnung: bevorzugt der (Reverse-DNS-)Hostname, sonst der Produktname
+            // aus einer evtl. offenen Antwort, sonst generisch "Eltako IP".
+            $name = $hostname;
+            if ($name === '') {
+                $name = $info['preferredApp']['name'] ?? 'Eltako IP';
+            }
+
             $apiVersion = $info['api']['version'] ?? '';
             $rows[] = [
                 'Host'    => $entry['host'],
-                'Product' => $app,
+                'Product' => $name,
                 'Version' => $apiVersion !== '' ? 'API ' . $apiVersion : $this->Translate('login required'),
             ];
         }
