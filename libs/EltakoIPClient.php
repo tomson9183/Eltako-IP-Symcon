@@ -214,12 +214,13 @@ trait EltakoIPClient
     /**
      * Durchsucht ein /24-Subnetz nach Eltako IP-Geräten.
      *
-     * Es wird für jede Host-Adresse parallel der /.well-known/eltako/devices-Endpunkt
-     * abgefragt. Antwortet ein Host mit einer gültigen Eltako-Kennung, gilt er als gefunden.
+     * Erkennung über den API-Endpunkt /api/v0/devices: Eltako-Geräte antworten dort mit
+     * HTTP 401 (Endpunkt existiert, benötigt Anmeldung) bzw. 200. Der zuvor genutzte
+     * Pfad /.well-known/eltako/devices existiert auf den 62-IP-Geräten nicht (HTTP 404).
      *
      * @param string $subnet Subnetz-Präfix, z. B. "192.168.1." (mit abschließendem Punkt).
      *
-     * @return array<int, array{host:string, info:array}> Gefundene Geräte (Host + well-known-Antwort).
+     * @return array<int, array{host:string, info:array}> Gefundene Geräte (Host + evtl. Infos).
      */
     protected function EltakoScanSubnet(string $subnet): array
     {
@@ -239,7 +240,7 @@ trait EltakoIPClient
                 $host = $subnet . $i;
                 $ch = curl_init();
                 curl_setopt_array($ch, [
-                    CURLOPT_URL            => sprintf('https://%s:%d/.well-known/eltako/devices', $host, self::$ELTAKO_PORT),
+                    CURLOPT_URL            => sprintf('https://%s:%d/api/v0/devices', $host, self::$ELTAKO_PORT),
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_CONNECTTIMEOUT => self::$ELTAKO_SCAN_TIMEOUT,
                     CURLOPT_TIMEOUT        => self::$ELTAKO_SCAN_TIMEOUT,
@@ -262,12 +263,17 @@ trait EltakoIPClient
             foreach ($handles as $host => $ch) {
                 $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
                 $body = curl_multi_getcontent($ch);
-                if ($code === 200 && is_string($body) && $body !== '') {
-                    $decoded = json_decode($body, true);
-                    // Eltako-Geräte liefern unter "api" eine Versions-/Service-Struktur.
-                    if (is_array($decoded) && isset($decoded['api'])) {
-                        $found[] = ['host' => $host, 'info' => $decoded];
+                // 401 = Endpunkt vorhanden, Anmeldung nötig (typisch Eltako).
+                // 200 = bereits offen erreichbar.
+                if ($code === 401 || $code === 200) {
+                    $info = [];
+                    if ($code === 200 && is_string($body) && $body !== '') {
+                        $decoded = json_decode($body, true);
+                        if (is_array($decoded)) {
+                            $info = $decoded;
+                        }
                     }
+                    $found[] = ['host' => $host, 'info' => $info];
                 }
                 curl_multi_remove_handle($multi, $ch);
                 curl_close($ch);

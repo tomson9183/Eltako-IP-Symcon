@@ -67,12 +67,12 @@ class EltakoIPConfigurator extends IPSModule
         $rows = [];
         foreach ($found as $entry) {
             $info = $entry['info'];
-            $app = $info['preferredApp']['name'] ?? 'Eltako';
-            $apiVersion = $info['api']['version'] ?? '?';
+            $app = $info['preferredApp']['name'] ?? 'Eltako IP';
+            $apiVersion = $info['api']['version'] ?? '';
             $rows[] = [
                 'Host'    => $entry['host'],
                 'Product' => $app,
-                'Version' => 'API ' . $apiVersion,
+                'Version' => $apiVersion !== '' ? 'API ' . $apiVersion : $this->Translate('login required'),
             ];
         }
 
