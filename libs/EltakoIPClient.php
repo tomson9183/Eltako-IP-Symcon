@@ -28,7 +28,7 @@ trait EltakoIPClient
     private static $ELTAKO_TIMEOUT = 8;
 
     /** Timeout (Sekunden) pro Host beim Netzwerk-Scan. */
-    private static $ELTAKO_SCAN_TIMEOUT = 2;
+    private static $ELTAKO_SCAN_TIMEOUT = 3;
 
     /**
      * Führt einen einzelnen HTTP-Request gegen ein Eltako IP-Gerät aus.
@@ -224,48 +224,58 @@ trait EltakoIPClient
     protected function EltakoScanSubnet(string $subnet): array
     {
         $found = [];
-        $multi = curl_multi_init();
-        $handles = [];
 
-        for ($i = 1; $i <= 254; $i++) {
-            $host = $subnet . $i;
-            $ch = curl_init();
-            curl_setopt_array($ch, [
-                CURLOPT_URL            => sprintf('https://%s:%d/.well-known/eltako/devices', $host, self::$ELTAKO_PORT),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_CONNECTTIMEOUT => self::$ELTAKO_SCAN_TIMEOUT,
-                CURLOPT_TIMEOUT        => self::$ELTAKO_SCAN_TIMEOUT,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => 0,
-                CURLOPT_NOSIGNAL       => 1,
-            ]);
-            curl_multi_add_handle($multi, $ch);
-            $handles[$host] = $ch;
-        }
+        // In Blöcken scannen, damit nicht 254 gleichzeitige TLS-Verbindungen das
+        // Netzwerk/Router überlasten (was auch echte Geräte verschlucken würde).
+        $batchSize = 32;
 
-        // Alle Requests parallel ausführen.
-        do {
-            $status = curl_multi_exec($multi, $active);
-            if ($active) {
-                curl_multi_select($multi, 1.0);
+        for ($start = 1; $start <= 254; $start += $batchSize) {
+            $end = min($start + $batchSize - 1, 254);
+
+            $multi = curl_multi_init();
+            $handles = [];
+
+            for ($i = $start; $i <= $end; $i++) {
+                $host = $subnet . $i;
+                $ch = curl_init();
+                curl_setopt_array($ch, [
+                    CURLOPT_URL            => sprintf('https://%s:%d/.well-known/eltako/devices', $host, self::$ELTAKO_PORT),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_CONNECTTIMEOUT => self::$ELTAKO_SCAN_TIMEOUT,
+                    CURLOPT_TIMEOUT        => self::$ELTAKO_SCAN_TIMEOUT,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => 0,
+                    CURLOPT_NOSIGNAL       => 1,
+                ]);
+                curl_multi_add_handle($multi, $ch);
+                $handles[$host] = $ch;
             }
-        } while ($active && $status === CURLM_OK);
 
-        foreach ($handles as $host => $ch) {
-            $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-            $body = curl_multi_getcontent($ch);
-            if ($code === 200 && is_string($body) && $body !== '') {
-                $decoded = json_decode($body, true);
-                // Eltako-Geräte liefern unter "api" eine Versions-/Service-Struktur.
-                if (is_array($decoded) && isset($decoded['api'])) {
-                    $found[] = ['host' => $host, 'info' => $decoded];
+            // Block parallel ausführen.
+            do {
+                $status = curl_multi_exec($multi, $active);
+                if ($active) {
+                    curl_multi_select($multi, 1.0);
                 }
+            } while ($active && $status === CURLM_OK);
+
+            foreach ($handles as $host => $ch) {
+                $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+                $body = curl_multi_getcontent($ch);
+                if ($code === 200 && is_string($body) && $body !== '') {
+                    $decoded = json_decode($body, true);
+                    // Eltako-Geräte liefern unter "api" eine Versions-/Service-Struktur.
+                    if (is_array($decoded) && isset($decoded['api'])) {
+                        $found[] = ['host' => $host, 'info' => $decoded];
+                    }
+                }
+                curl_multi_remove_handle($multi, $ch);
+                curl_close($ch);
             }
-            curl_multi_remove_handle($multi, $ch);
-            curl_close($ch);
+
+            curl_multi_close($multi);
         }
 
-        curl_multi_close($multi);
         return $found;
     }
 
@@ -288,6 +298,15 @@ trait EltakoIPClient
                 }
             }
         }
+
+        // Fallback: lokale IP über den Hostnamen ermitteln.
+        $ip = @gethostbyname(@gethostname());
+        if (is_string($ip)
+            && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)
+            && strpos($ip, '127.') !== 0) {
+            return substr($ip, 0, strrpos($ip, '.') + 1);
+        }
+
         return '192.168.0.';
     }
 }

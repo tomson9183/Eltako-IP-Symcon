@@ -43,9 +43,15 @@ class EltakoIPConfigurator extends IPSModule
     /**
      * Durchsucht das lokale Subnetz nach Eltako IP-Geräten und füllt die Ergebnisliste.
      */
-    public function ScanNetwork(): void
+    public function ScanNetwork(string $Subnet = ''): void
     {
-        $subnet = trim($this->ReadPropertyString('ScanSubnet'));
+        // Wichtig: den im Formular eingetragenen Wert verwenden (dieser ist evtl. noch
+        // nicht gespeichert, daher wird er als Parameter übergeben). Erst danach auf die
+        // gespeicherte Property bzw. die automatische Erkennung zurückfallen.
+        $subnet = trim($Subnet);
+        if ($subnet === '') {
+            $subnet = trim($this->ReadPropertyString('ScanSubnet'));
+        }
         if ($subnet === '') {
             $subnet = $this->EltakoGuessSubnet();
         }
@@ -87,6 +93,35 @@ class EltakoIPConfigurator extends IPSModule
         if ($Host !== '') {
             $this->UpdateFormField('Host', 'value', $Host);
         }
+    }
+
+    /**
+     * Testet die Erreichbarkeit einer einzelnen IP über den öffentlichen well-known-Endpunkt
+     * und zeigt das Ergebnis als Klartext an. Dient zur Diagnose, wenn die Netzwerksuche
+     * nichts findet.
+     */
+    public function TestConnection(string $Host): void
+    {
+        $Host = trim($Host);
+        if ($Host === '') {
+            echo $this->Translate('Please enter an IP address / hostname.');
+            return;
+        }
+
+        $res = $this->EltakoRequest($Host, 'GET', '/.well-known/eltako/devices', null);
+
+        if ($res['code'] === 200 && is_array($res['body']) && isset($res['body']['api'])) {
+            $version = $res['body']['api']['version'] ?? '?';
+            echo sprintf($this->Translate("OK: Eltako IP device reachable at %s (API %s)."), $Host, $version);
+            return;
+        }
+
+        if ($res['error'] !== '') {
+            echo sprintf($this->Translate("Not reachable: %s\nError: %s"), $Host, $res['error']);
+            return;
+        }
+
+        echo sprintf($this->Translate("Response from %s, but no Eltako device detected (HTTP %d)."), $Host, $res['code']);
     }
 
     /**

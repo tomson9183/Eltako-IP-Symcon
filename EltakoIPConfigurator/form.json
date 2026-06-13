@@ -18,7 +18,7 @@
                         {
                             "type": "Button",
                             "caption": "Netzwerk durchsuchen",
-                            "onClick": "ELTAKOIPCFG_ScanNetwork($id);"
+                            "onClick": "ELTAKOIPCFG_ScanNetwork($id, $ScanSubnet);"
                         }
                     ]
                 },
@@ -70,6 +70,11 @@
                     "type": "ValidationTextBox",
                     "name": "Host",
                     "caption": "IP-Adresse / Hostname"
+                },
+                {
+                    "type": "Button",
+                    "caption": "Verbindung testen",
+                    "onClick": "ELTAKOIPCFG_TestConnection($id, $Host);"
                 },
                 {
                     "type": "PasswordTextBox",
