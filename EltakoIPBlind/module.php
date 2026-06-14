@@ -36,6 +36,8 @@ class EltakoIPBlind extends IPSModule
     {
         parent::ApplyChanges();
 
+        $this->EltakoEnsureProfiles();
+
         $hasTilt = $this->ReadPropertyBoolean('HasTilt');
         $this->MaintainVariable('Tilt', $this->Translate('Slat position'), VARIABLETYPE_INTEGER, '~Intensity.100', 20, $hasTilt);
         if ($hasTilt) {
@@ -43,6 +45,16 @@ class EltakoIPBlind extends IPSModule
         }
 
         $this->MaintainVariable('Power', $this->Translate('Power'), VARIABLETYPE_FLOAT, '~Watt', 30, true);
+
+        // Schöne Profile/Icons setzen.
+        $positionID = $this->GetIDForIdent('Position');
+        if ($positionID) {
+            @IPS_SetVariableCustomProfile($positionID, 'ELTAKOIP.Shutter');
+        }
+        $tiltID = @$this->GetIDForIdent('Tilt');
+        if ($tiltID) {
+            @IPS_SetVariableCustomProfile($tiltID, 'ELTAKOIP.Shutter');
+        }
 
         $interval = $this->ReadPropertyInteger('UpdateInterval');
         $this->SetTimerInterval('Update', $interval > 0 ? $interval * 1000 : 0);

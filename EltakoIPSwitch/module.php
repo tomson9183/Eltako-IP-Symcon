@@ -22,18 +22,34 @@ class EltakoIPSwitch extends IPSModule
         $this->RegisterPropertyString('APIKey', '');
         $this->RegisterPropertyString('DeviceGuid', '');
         $this->RegisterPropertyInteger('UpdateInterval', 0);
+        // Impuls-/Tastermodus: nach dem Einschalten automatisch wieder ausschalten
+        // (z. B. Garagentor, Türöffner / Entriegelung).
+        $this->RegisterPropertyBoolean('PulseMode', false);
+        $this->RegisterPropertyInteger('PulseDuration', 2000);
 
         $this->RegisterVariableBoolean('State', $this->Translate('State'), '~Switch', 10);
         $this->EnableAction('State');
 
         $this->RegisterTimer('Update', 0, 'ELTAKOIPSW_Update($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('PulseOff', 0, 'ELTAKOIPSW_PulseOff($_IPS[\'TARGET\']);');
     }
 
     public function ApplyChanges()
     {
         parent::ApplyChanges();
 
+        $this->EltakoEnsureProfiles();
+
         $this->MaintainVariable('Power', $this->Translate('Power'), VARIABLETYPE_FLOAT, '~Watt', 20, true);
+
+        // Passendes Profil/Icon je nach Betriebsart setzen.
+        $stateID = $this->GetIDForIdent('State');
+        if ($stateID) {
+            @IPS_SetVariableCustomProfile(
+                $stateID,
+                $this->ReadPropertyBoolean('PulseMode') ? 'ELTAKOIP.Gate' : 'ELTAKOIP.Switch'
+            );
+        }
 
         $interval = $this->ReadPropertyInteger('UpdateInterval');
         $this->SetTimerInterval('Update', $interval > 0 ? $interval * 1000 : 0);
@@ -53,10 +69,55 @@ class EltakoIPSwitch extends IPSModule
     public function RequestAction($Ident, $Value)
     {
         if ($Ident === 'State') {
-            $this->SetState((bool) $Value);
+            if ($this->ReadPropertyBoolean('PulseMode')) {
+                // Im Tastermodus löst "Ein" einen zeitlich begrenzten Impuls aus.
+                if ($Value) {
+                    $this->Pulse();
+                } else {
+                    $this->SetTimerInterval('PulseOff', 0);
+                    $this->SetState(false);
+                }
+            } else {
+                $this->SetState((bool) $Value);
+            }
             return;
         }
         throw new Exception('Invalid Ident: ' . $Ident);
+    }
+
+    /**
+     * Löst einen Schaltimpuls aus: schaltet ein und nach der eingestellten Impulsdauer
+     * (Standard 2 s) automatisch wieder aus. Ideal für Tür-/Toröffner.
+     */
+    public function Pulse(): bool
+    {
+        if (!$this->ValidateConfiguration()) {
+            return false;
+        }
+
+        $ok = $this->SetState(true);
+        if ($ok) {
+            $duration = $this->ReadPropertyInteger('PulseDuration');
+            if ($duration < 200) {
+                $duration = 2000;
+            }
+            if ($duration > 60000) {
+                $duration = 60000;
+            }
+            // Einmaliges Ausschalten nach Ablauf der Impulsdauer.
+            $this->SetTimerInterval('PulseOff', $duration);
+        }
+
+        return $ok;
+    }
+
+    /**
+     * Wird vom Impuls-Timer aufgerufen und schaltet den Aktor wieder aus.
+     */
+    public function PulseOff(): void
+    {
+        $this->SetTimerInterval('PulseOff', 0);
+        $this->SetState(false);
     }
 
     /**

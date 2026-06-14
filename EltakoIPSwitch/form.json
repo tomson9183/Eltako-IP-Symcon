@@ -21,6 +21,23 @@
             "caption": "Aktualisierungsintervall (Sekunden, 0 = aus)",
             "minimum": 0,
             "maximum": 86400
+        },
+        {
+            "type": "Label",
+            "caption": "Impuls-/Tastermodus (z. B. Garagentor / Türöffner): Beim Einschalten geht das Relais an und nach der Impulsdauer automatisch wieder aus."
+        },
+        {
+            "type": "CheckBox",
+            "name": "PulseMode",
+            "caption": "Impuls-/Tastermodus aktivieren"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "PulseDuration",
+            "caption": "Impulsdauer (ms)",
+            "minimum": 200,
+            "maximum": 60000,
+            "suffix": "ms"
         }
     ],
     "actions": [
@@ -28,6 +45,11 @@
             "type": "Button",
             "caption": "Jetzt aktualisieren",
             "onClick": "ELTAKOIPSW_Update($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "Impuls auslösen (Öffnen)",
+            "onClick": "ELTAKOIPSW_Pulse($id);"
         },
         {
             "type": "Button",

@@ -10,6 +10,10 @@
             "Jetzt aktualisieren": "Jetzt aktualisieren",
             "Einschalten": "Einschalten",
             "Ausschalten": "Ausschalten",
+            "Impuls auslösen (Öffnen)": "Impuls auslösen (Öffnen)",
+            "Impuls-/Tastermodus aktivieren": "Impuls-/Tastermodus aktivieren",
+            "Impulsdauer (ms)": "Impulsdauer (ms)",
+            "Impuls-/Tastermodus (z. B. Garagentor / Türöffner): Beim Einschalten geht das Relais an und nach der Impulsdauer automatisch wieder aus.": "Impuls-/Tastermodus (z. B. Garagentor / Türöffner): Beim Einschalten geht das Relais an und nach der Impulsdauer automatisch wieder aus.",
             "Aktiv": "Aktiv",
             "Nicht konfiguriert (Host, API-Key und Device-GUID erforderlich)": "Nicht konfiguriert (Host, API-Key und Device-GUID erforderlich)",
             "Gerät nicht erreichbar oder Anmeldung fehlgeschlagen": "Gerät nicht erreichbar oder Anmeldung fehlgeschlagen"
@@ -24,6 +28,10 @@
             "Jetzt aktualisieren": "Update now",
             "Einschalten": "Switch on",
             "Ausschalten": "Switch off",
+            "Impuls auslösen (Öffnen)": "Trigger pulse (open)",
+            "Impuls-/Tastermodus aktivieren": "Enable pulse / momentary mode",
+            "Impulsdauer (ms)": "Pulse duration (ms)",
+            "Impuls-/Tastermodus (z. B. Garagentor / Türöffner): Beim Einschalten geht das Relais an und nach der Impulsdauer automatisch wieder aus.": "Pulse / momentary mode (e.g. garage door / door opener): switching on activates the relay and automatically switches it off again after the pulse duration.",
             "Aktiv": "Active",
             "Nicht konfiguriert (Host, API-Key und Device-GUID erforderlich)": "Not configured (host, API key and device GUID required)",
             "Gerät nicht erreichbar oder Anmeldung fehlgeschlagen": "Device unreachable or authentication failed"

@@ -33,6 +33,12 @@ class EltakoIPDimmer extends IPSModule
     {
         parent::ApplyChanges();
 
+        $this->EltakoEnsureProfiles();
+        $brightnessID = $this->GetIDForIdent('Brightness');
+        if ($brightnessID) {
+            @IPS_SetVariableCustomProfile($brightnessID, 'ELTAKOIP.Brightness');
+        }
+
         $interval = $this->ReadPropertyInteger('UpdateInterval');
         $this->SetTimerInterval('Update', $interval > 0 ? $interval * 1000 : 0);
 

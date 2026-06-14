@@ -425,4 +425,44 @@ trait EltakoIPClient
 
         return '192.168.0.';
     }
+
+    /**
+     * Legt die gemeinsamen Variablenprofile (Icons, Farben, Einheiten) für eine schöne
+     * Darstellung in der Visualisierung an. Idempotent – kann bei jedem ApplyChanges
+     * aufgerufen werden.
+     */
+    protected function EltakoEnsureProfiles(): void
+    {
+        // Schaltaktor: Ein/Aus mit Power-Icon.
+        if (!IPS_VariableProfileExists('ELTAKOIP.Switch')) {
+            IPS_CreateVariableProfile('ELTAKOIP.Switch', VARIABLETYPE_BOOLEAN);
+        }
+        IPS_SetVariableProfileIcon('ELTAKOIP.Switch', 'Power');
+        IPS_SetVariableProfileAssociation('ELTAKOIP.Switch', 0, 'Aus', '', -1);
+        IPS_SetVariableProfileAssociation('ELTAKOIP.Switch', 1, 'Ein', '', 0x00C853);
+
+        // Tür-/Tor-Öffner (Impuls): Schloss-Icon, "Zu"/"Öffnen".
+        if (!IPS_VariableProfileExists('ELTAKOIP.Gate')) {
+            IPS_CreateVariableProfile('ELTAKOIP.Gate', VARIABLETYPE_BOOLEAN);
+        }
+        IPS_SetVariableProfileIcon('ELTAKOIP.Gate', 'Lock');
+        IPS_SetVariableProfileAssociation('ELTAKOIP.Gate', 0, 'Zu', '', -1);
+        IPS_SetVariableProfileAssociation('ELTAKOIP.Gate', 1, 'Öffnen', '', 0x00C853);
+
+        // Dimmer: Helligkeit 0–100 % mit Licht-Icon.
+        if (!IPS_VariableProfileExists('ELTAKOIP.Brightness')) {
+            IPS_CreateVariableProfile('ELTAKOIP.Brightness', VARIABLETYPE_INTEGER);
+        }
+        IPS_SetVariableProfileIcon('ELTAKOIP.Brightness', 'Light');
+        IPS_SetVariableProfileText('ELTAKOIP.Brightness', '', ' %');
+        IPS_SetVariableProfileValues('ELTAKOIP.Brightness', 0, 100, 1);
+
+        // Rollladen: Position 0–100 % mit Jalousie-Icon.
+        if (!IPS_VariableProfileExists('ELTAKOIP.Shutter')) {
+            IPS_CreateVariableProfile('ELTAKOIP.Shutter', VARIABLETYPE_INTEGER);
+        }
+        IPS_SetVariableProfileIcon('ELTAKOIP.Shutter', 'Jalousie');
+        IPS_SetVariableProfileText('ELTAKOIP.Shutter', '', ' %');
+        IPS_SetVariableProfileValues('ELTAKOIP.Shutter', 0, 100, 1);
+    }
 }
