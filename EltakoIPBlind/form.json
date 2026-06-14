@@ -21,6 +21,21 @@
             "caption": "Lamellensteuerung vorhanden (ESB64-IPM)"
         },
         {
+            "type": "CheckBox",
+            "name": "InvertDirection",
+            "caption": "Richtung umkehren (falls Auf/Zu vertauscht sind)"
+        },
+        {
+            "type": "Select",
+            "name": "VisuTheme",
+            "caption": "Kachel-Design",
+            "options": [
+                { "caption": "Automatisch (System)", "value": "auto" },
+                { "caption": "Hell", "value": "light" },
+                { "caption": "Dunkel", "value": "dark" }
+            ]
+        },
+        {
             "type": "NumberSpinner",
             "name": "UpdateInterval",
             "caption": "Aktualisierungsintervall (Sekunden, 0 = aus)",
@@ -36,13 +51,18 @@
         },
         {
             "type": "Button",
-            "caption": "Auf (0 %)",
-            "onClick": "ELTAKOIPBL_SetPosition($id, 0);"
+            "caption": "Auf (offen)",
+            "onClick": "ELTAKOIPBL_SetPosition($id, 100);"
         },
         {
             "type": "Button",
-            "caption": "Zu (100 %)",
-            "onClick": "ELTAKOIPBL_SetPosition($id, 100);"
+            "caption": "Stop",
+            "onClick": "ELTAKOIPBL_Stop($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "Zu (geschlossen)",
+            "onClick": "ELTAKOIPBL_SetPosition($id, 0);"
         }
     ],
     "status": [

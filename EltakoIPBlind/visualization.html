@@ -1,0 +1,99 @@
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;}
+  .thbox{ --num:#ffffff; --txt:#c7ccd6; --sub:#8a93a0; --chip:#2b2f3a; --chiptx:#e8ebf0; }
+  @media (prefers-color-scheme: light){
+    .thbox.th-auto{ --num:#13202b; --txt:#3a4753; --sub:#6b7782; --chip:#e6eaf0; --chiptx:#3a4753; }
+  }
+  .thbox.th-light{ --num:#13202b; --txt:#3a4753; --sub:#6b7782; --chip:#e6eaf0; --chiptx:#3a4753; }
+  .thbox.th-dark{ --num:#ffffff; --txt:#c7ccd6; --sub:#8a93a0; --chip:#2b2f3a; --chiptx:#e8ebf0; }
+  #rsBox{position:relative;width:100%;overflow:hidden;}
+  .rs-card{position:absolute;left:50%;top:50%;transform-origin:center center;
+    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--txt);text-align:center;
+    width:230px;box-sizing:border-box;padding:6px;background:transparent;}
+  .rs-name{font-size:15px;font-weight:700;color:var(--num);margin-bottom:4px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rs-win{width:100%;margin:0 auto;}
+  .rs-win svg{width:100%;height:auto;display:block;}
+  .rs-state{margin-top:6px;font-size:13px;color:var(--txt);}
+  .rs-state b{color:var(--num);}
+  .rs-btns{margin-top:8px;display:flex;gap:6px;justify-content:center;}
+  .rs-btns button{padding:7px 14px;border-radius:9px;border:none;cursor:pointer;
+    font-size:12px;font-weight:700;background:var(--chip);color:var(--chiptx);}
+  .rs-btns button:active{transform:scale(.94);}
+  .rs-up{color:#2e9e4f;} .rs-stop{color:#d99100;} .rs-dn{color:#2f7fd0;}
+  .rs-slider{margin-top:10px;display:flex;align-items:center;gap:8px;justify-content:center;
+    font-size:10px;color:var(--sub);}
+  .rs-slider input{width:120px;}
+</style>
+<div id="rsBox" class="thbox __THEME__"><div class="rs-card" id="rsCard">
+  <div class="rs-name">__NAME__</div>
+  <div class="rs-win">
+    <svg viewBox="0 0 200 184" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="rsGlass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#bfe3ff"/><stop offset="100%" stop-color="#eaf6ff"/>
+        </linearGradient>
+        <linearGradient id="rsSlat" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#eceff3"/><stop offset="100%" stop-color="#c2c7cf"/>
+        </linearGradient>
+        <pattern id="rsSlats" width="92" height="9" patternUnits="userSpaceOnUse" x="54" y="22">
+          <rect width="92" height="9" fill="url(#rsSlat)"/>
+          <rect width="92" height="1.3" y="7.7" fill="#a7adb7"/>
+        </pattern>
+        <clipPath id="rsClip"><rect x="54" y="22" width="92" height="112" rx="3"/></clipPath>
+      </defs>
+      <rect x="40" y="150" width="120" height="11" rx="3" fill="#8a8f98"/>
+      <rect x="46" y="14" width="108" height="128" rx="6" fill="#727884"/>
+      <rect x="54" y="22" width="92" height="112" rx="3" fill="url(#rsGlass)"/>
+      <circle cx="126" cy="48" r="11" fill="#ffd76b" clip-path="url(#rsClip)"/>
+      <g clip-path="url(#rsClip)">
+        <g id="rsShutter" style="transition:transform .45s ease">
+          <rect x="54" y="22" width="92" height="112" fill="url(#rsSlats)"/>
+          <rect x="54" y="128" width="92" height="6" rx="1" fill="#9aa0aa"/>
+        </g>
+      </g>
+      <rect x="54" y="22" width="92" height="112" rx="3" fill="none" stroke="#5c616b" stroke-width="1.2"/>
+    </svg>
+  </div>
+  <div class="rs-state" id="rsState">&ndash;</div>
+  <div class="rs-btns">
+    <button class="rs-up"   onclick="requestAction('Move',0)">&#9650; Auf</button>
+    <button class="rs-stop" onclick="requestAction('Move',1)">&#9632; Stop</button>
+    <button class="rs-dn"   onclick="requestAction('Move',2)">&#9660; Zu</button>
+  </div>
+  <div class="rs-slider">
+    <span>Zu</span>
+    <input id="rsSlider" type="range" min="0" max="100" step="1"
+      oninput="rsLbl(this.value)" onchange="requestAction('Position', parseInt(this.value,10))">
+    <span>Auf</span>
+  </div>
+</div></div>
+<script>
+  window.rsLevel = 0;
+  function rsLbl(v){ document.getElementById('rsState').innerHTML = rsTxt(parseInt(v,10)); }
+  function rsTxt(l){ return l>=99 ? '<b>Offen</b>' : (l<=1 ? '<b>Geschlossen</b>' : 'Position <b>'+l+' %</b>'); }
+  function handleMessage(message){
+    var d=(typeof message==='string')?JSON.parse(message):message;
+    var l=Math.max(0,Math.min(100,Math.round(d.level)));
+    window.rsLevel=l;
+    var H=112;
+    // l = 100 (offen) -> Rollladen ganz oben; l = 0 (zu) -> ganz unten
+    document.getElementById('rsShutter').style.transform='translateY('+(-(l/100)*H).toFixed(1)+'px)';
+    document.getElementById('rsState').innerHTML=rsTxt(l);
+    var sl=document.getElementById('rsSlider');
+    if(document.activeElement!==sl){ sl.value=l; }
+    rsFit();
+  }
+  function rsFit(){
+    var box=document.getElementById('rsBox'), c=document.getElementById('rsCard');
+    if(!box||!c) return;
+    var w=window.innerWidth||1, h=window.innerHeight||1;
+    box.style.height=h+'px';
+    c.style.transform='translate(-50%,-50%)';
+    var s=Math.min(w/(c.offsetWidth||1), h/(c.offsetHeight||1));
+    if(!isFinite(s)||s<=0) s=1;
+    c.style.transform='translate(-50%,-50%) scale('+s+')';
+  }
+  window.addEventListener('resize', rsFit);
+  window.addEventListener('load', function(){ rsFit(); setTimeout(rsFit,80); setTimeout(rsFit,300); });
+</script>
