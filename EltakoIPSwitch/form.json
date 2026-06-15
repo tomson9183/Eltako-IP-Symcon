@@ -38,6 +38,32 @@
             "minimum": 200,
             "maximum": 60000,
             "suffix": "ms"
+        },
+        {
+            "type": "Label",
+            "caption": "Visualisierung (eigene Kachel)"
+        },
+        {
+            "type": "Select",
+            "name": "VisuStyle",
+            "caption": "Kachel-Stil",
+            "options": [
+                { "caption": "Automatisch (Gartentor bei Impuls, sonst Außenleuchte)", "value": "auto" },
+                { "caption": "Außenleuchte", "value": "lamp" },
+                { "caption": "Gartentor (animiert)", "value": "gate" },
+                { "caption": "Power-Schalter (mit Watt)", "value": "power" },
+                { "caption": "Keine eigene Kachel", "value": "none" }
+            ]
+        },
+        {
+            "type": "Select",
+            "name": "VisuTheme",
+            "caption": "Kachel-Design",
+            "options": [
+                { "caption": "Automatisch (System)", "value": "auto" },
+                { "caption": "Hell", "value": "light" },
+                { "caption": "Dunkel", "value": "dark" }
+            ]
         }
     ],
     "actions": [

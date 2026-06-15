@@ -27,11 +27,17 @@ class EltakoIPSwitch extends IPSModule
         $this->RegisterPropertyBoolean('PulseMode', false);
         $this->RegisterPropertyInteger('PulseDuration', 2000);
 
+        // Visualisierung (eigene Kachel).
+        $this->RegisterPropertyString('VisuStyle', 'auto');
+        $this->RegisterPropertyString('VisuTheme', 'auto');
+
         $this->RegisterVariableBoolean('State', $this->Translate('State'), '~Switch', 10);
         $this->EnableAction('State');
 
         $this->RegisterTimer('Update', 0, 'ELTAKOIPSW_Update($_IPS[\'TARGET\']);');
         $this->RegisterTimer('PulseOff', 0, 'ELTAKOIPSW_PulseOff($_IPS[\'TARGET\']);');
+
+        $this->SetVisualizationType(1);
     }
 
     public function ApplyChanges()
@@ -51,6 +57,9 @@ class EltakoIPSwitch extends IPSModule
             );
         }
 
+        // Eigene Kachel aktivieren (außer bei Stil "none").
+        $this->SetVisualizationType($this->ResolveVisuStyle() === 'none' ? 0 : 1);
+
         $interval = $this->ReadPropertyInteger('UpdateInterval');
         $this->SetTimerInterval('Update', $interval > 0 ? $interval * 1000 : 0);
 
@@ -61,6 +70,63 @@ class EltakoIPSwitch extends IPSModule
     {
         $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
         return json_encode($form);
+    }
+
+    // ---- Interaktive HTML-Kachel -----------------------------------------
+
+    public function GetVisualizationTile()
+    {
+        $style = $this->ResolveVisuStyle();
+        if ($style === 'none') {
+            return '';
+        }
+
+        $this->Update();
+
+        $file = __DIR__ . '/visu_' . $style . '.html';
+        if (!file_exists($file)) {
+            $file = __DIR__ . '/visu_lamp.html';
+        }
+
+        $html = strtr(file_get_contents($file), [
+            '__THEME__' => $this->VisuThemeClass(),
+            '__NAME__'  => htmlspecialchars(IPS_GetName($this->InstanceID), ENT_QUOTES),
+        ]);
+
+        return $html . '<script>try{handleMessage(' . json_encode($this->VisuPayload()) . ');}catch(e){}</script>';
+    }
+
+    /** Ermittelt den effektiven Kachel-Stil (auto => Gartentor bei Impuls, sonst Außenleuchte). */
+    private function ResolveVisuStyle(): string
+    {
+        $style = $this->ReadPropertyString('VisuStyle');
+        if ($style === 'auto') {
+            return $this->ReadPropertyBoolean('PulseMode') ? 'gate' : 'lamp';
+        }
+        return $style;
+    }
+
+    private function VisuThemeClass(): string
+    {
+        $t = $this->ReadPropertyString('VisuTheme');
+        return ($t === 'light') ? 'th-light' : (($t === 'dark') ? 'th-dark' : 'th-auto');
+    }
+
+    private function VisuPayload(): string
+    {
+        $on    = (@$this->GetIDForIdent('State') !== false) ? (bool) $this->GetValue('State') : false;
+        $power = (@$this->GetIDForIdent('Power') !== false) ? (float) $this->GetValue('Power') : 0.0;
+        return json_encode([
+            'on'       => $on,
+            'power'    => round($power, 1),
+            'pulse'    => $this->ReadPropertyBoolean('PulseMode'),
+            'duration' => $this->ReadPropertyInteger('PulseDuration'),
+        ]);
+    }
+
+    private function PushVisu(): void
+    {
+        $this->UpdateVisualizationValue($this->VisuPayload());
     }
 
     /**
@@ -144,6 +210,8 @@ class EltakoIPSwitch extends IPSModule
             $this->SetStatus(201);
         }
 
+        $this->PushVisu();
+
         return $ok;
     }
 
@@ -178,6 +246,7 @@ class EltakoIPSwitch extends IPSModule
         }
 
         $this->SetStatus(102);
+        $this->PushVisu();
     }
 
     /**

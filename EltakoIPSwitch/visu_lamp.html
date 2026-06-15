@@ -1,0 +1,82 @@
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;}
+  .thbox{ --num:#ffffff; --txt:#c7ccd6; --sub:#8a93a0; --chip:#2b2f3a; --chiptx:#e8ebf0; --bg:#1b2330; }
+  @media (prefers-color-scheme: light){
+    .thbox.th-auto{ --num:#13202b; --txt:#3a4753; --sub:#6b7782; --chip:#e6eaf0; --chiptx:#3a4753; --bg:#dfe7f1; }
+  }
+  .thbox.th-light{ --num:#13202b; --txt:#3a4753; --sub:#6b7782; --chip:#e6eaf0; --chiptx:#3a4753; --bg:#dfe7f1; }
+  .thbox.th-dark{ --num:#ffffff; --txt:#c7ccd6; --sub:#8a93a0; --chip:#2b2f3a; --chiptx:#e8ebf0; --bg:#1b2330; }
+  #lpBox{position:relative;width:100%;overflow:hidden;}
+  .lp-card{position:absolute;left:50%;top:50%;transform-origin:center center;
+    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--txt);text-align:center;
+    width:210px;box-sizing:border-box;padding:6px;}
+  .lp-name{font-size:15px;font-weight:700;color:var(--num);margin-bottom:4px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lp-lamp{cursor:pointer;}
+  .lp-lamp svg{width:100%;height:auto;display:block;}
+  #lpGlow{transition:opacity .5s ease;}
+  #lpLight{transition:fill .35s ease;}
+  .lp-state{margin-top:4px;font-size:13px;color:var(--txt);}
+  .lp-state b{color:var(--num);}
+  .lp-watt{font-size:12px;color:var(--sub);min-height:14px;}
+  .lp-btn{margin-top:8px;padding:8px 20px;border-radius:10px;border:none;cursor:pointer;
+    font-size:13px;font-weight:700;background:var(--chip);color:var(--chiptx);}
+  .lp-btn:active{transform:scale(.95);}
+</style>
+<div id="lpBox" class="thbox __THEME__"><div class="lp-card" id="lpCard">
+  <div class="lp-name">__NAME__</div>
+  <div class="lp-lamp" onclick="lpToggle()">
+    <svg viewBox="0 0 200 170" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <radialGradient id="lpHalo" cx="50%" cy="38%" r="55%">
+          <stop offset="0%" stop-color="#ffe9a8" stop-opacity="0.95"/>
+          <stop offset="55%" stop-color="#ffd567" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#ffd567" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <!-- Lichtkegel/Halo (nur sichtbar bei EIN) -->
+      <ellipse id="lpGlow" cx="100" cy="66" rx="92" ry="78" fill="url(#lpHalo)" opacity="0"/>
+      <!-- Wandhalterung -->
+      <rect x="92" y="6" width="16" height="20" rx="3" fill="#6c7480"/>
+      <rect x="96" y="22" width="8" height="16" fill="#6c7480"/>
+      <!-- Laterne: Kappe -->
+      <path d="M70 44 L130 44 L120 36 L80 36 Z" fill="#3c4350"/>
+      <rect x="60" y="44" width="80" height="6" rx="2" fill="#4a5260"/>
+      <!-- Laternen-Korpus -->
+      <path d="M66 50 L134 50 L126 116 L74 116 Z" fill="#2c333f" stroke="#566070" stroke-width="2"/>
+      <!-- Glas + Leuchtmittel -->
+      <path d="M74 54 L126 54 L120 112 L80 112 Z" fill="#1b2430"/>
+      <ellipse id="lpLight" cx="100" cy="84" rx="17" ry="22" fill="#566070"/>
+      <!-- Boden-Spitze -->
+      <path d="M86 116 L114 116 L100 130 Z" fill="#3c4350"/>
+    </svg>
+  </div>
+  <div class="lp-state" id="lpState"><b>Aus</b></div>
+  <div class="lp-watt" id="lpWatt"></div>
+  <button class="lp-btn" id="lpBtn" onclick="lpToggle()">Einschalten</button>
+</div></div>
+<script>
+  window.lpOn=false;
+  function lpToggle(){ requestAction('State', !window.lpOn); }
+  function handleMessage(message){
+    var d=(typeof message==='string')?JSON.parse(message):message;
+    window.lpOn=!!d.on;
+    document.getElementById('lpGlow').setAttribute('opacity', window.lpOn?'1':'0');
+    document.getElementById('lpLight').setAttribute('fill', window.lpOn?'#ffdf73':'#566070');
+    document.getElementById('lpState').innerHTML = window.lpOn?'<b>Ein</b>':'<b>Aus</b>';
+    document.getElementById('lpBtn').textContent = window.lpOn?'Ausschalten':'Einschalten';
+    var w=(d.power!==undefined && d.power!==null)?Number(d.power):0;
+    document.getElementById('lpWatt').textContent = (window.lpOn && w>0)?(w.toFixed(1)+' W'):'';
+    lpFit();
+  }
+  function lpFit(){
+    var box=document.getElementById('lpBox'), c=document.getElementById('lpCard');
+    if(!box||!c) return;
+    var w=window.innerWidth||1, h=window.innerHeight||1;
+    box.style.height=h+'px'; c.style.transform='translate(-50%,-50%)';
+    var s=Math.min(w/(c.offsetWidth||1), h/(c.offsetHeight||1)); if(!isFinite(s)||s<=0)s=1;
+    c.style.transform='translate(-50%,-50%) scale('+s+')';
+  }
+  window.addEventListener('resize', lpFit);
+  window.addEventListener('load', function(){ lpFit(); setTimeout(lpFit,80); setTimeout(lpFit,300); });
+</script>
