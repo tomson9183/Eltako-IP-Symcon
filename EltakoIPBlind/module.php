@@ -31,6 +31,8 @@ class EltakoIPBlind extends IPSModule
         $this->RegisterPropertyBoolean('HasTilt', false);
         $this->RegisterPropertyBoolean('InvertDirection', false);
         $this->RegisterPropertyString('VisuTheme', 'auto');
+        // Eigenes Foto (Base64) als Aussicht hinter dem Rollladen.
+        $this->RegisterPropertyString('BackgroundImage', '');
         $this->RegisterPropertyInteger('UpdateInterval', 0);
 
         // Auf/Stop/Zu als nebeneinanderliegende Tasten (moderne Presentation-API).
@@ -267,9 +269,39 @@ class EltakoIPBlind extends IPSModule
         $html = strtr($html, [
             '__THEME__' => $this->VisuThemeClass(),
             '__NAME__'  => htmlspecialchars(IPS_GetName($this->InstanceID), ENT_QUOTES),
+            '__PHOTO__' => $this->VisuBackgroundCss(),
         ]);
 
         return $html . '<script>try{handleMessage(' . json_encode($this->VisuPayload()) . ');}catch(e){}</script>';
+    }
+
+    /**
+     * Liefert den CSS-Hintergrund für das Fenster: entweder das hochgeladene Foto
+     * (als Data-URI) oder einen gezeichneten Himmel als Fallback.
+     */
+    private function VisuBackgroundCss(): string
+    {
+        $img = trim($this->ReadPropertyString('BackgroundImage'));
+        if ($img === '') {
+            return 'linear-gradient(180deg,#bfe3ff 0%,#eaf6ff 60%,#eaf6e0 100%)';
+        }
+
+        // Bereits vollständige Data-URI?
+        if (stripos($img, 'data:') === 0) {
+            return "url('" . $img . "')";
+        }
+
+        // MIME anhand der Base64-Signatur bestimmen.
+        $mime = 'image/jpeg';
+        if (strpos($img, 'iVBOR') === 0) {
+            $mime = 'image/png';
+        } elseif (strpos($img, 'R0lGOD') === 0) {
+            $mime = 'image/gif';
+        } elseif (strpos($img, 'UklGR') === 0) {
+            $mime = 'image/webp';
+        }
+
+        return "url('data:" . $mime . ";base64," . $img . "')";
     }
 
     private function VisuThemeClass(): string

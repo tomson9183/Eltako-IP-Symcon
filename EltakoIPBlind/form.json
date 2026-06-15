@@ -36,6 +36,13 @@
             ]
         },
         {
+            "type": "SelectFile",
+            "name": "BackgroundImage",
+            "caption": "Foto (Aussicht hinter dem Rollladen) – leer = gezeichnetes Fenster",
+            "extensions": ".jpg,.jpeg,.png",
+            "width": "420px"
+        },
+        {
             "type": "NumberSpinner",
             "name": "UpdateInterval",
             "caption": "Aktualisierungsintervall (Sekunden, 0 = aus)",
