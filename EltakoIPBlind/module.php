@@ -31,6 +31,8 @@ class EltakoIPBlind extends IPSModule
         $this->RegisterPropertyBoolean('HasTilt', false);
         $this->RegisterPropertyBoolean('InvertDirection', false);
         $this->RegisterPropertyString('VisuTheme', 'auto');
+        // Hintergrund der Kachel: auto / daytime (Tageszeit-Aussicht) / photo / window.
+        $this->RegisterPropertyString('BackgroundMode', 'auto');
         // Eigenes Foto (Base64) als Aussicht hinter dem Rollladen.
         $this->RegisterPropertyString('BackgroundImage', '');
         $this->RegisterPropertyInteger('UpdateInterval', 0);
@@ -270,9 +272,30 @@ class EltakoIPBlind extends IPSModule
             '__THEME__' => $this->VisuThemeClass(),
             '__NAME__'  => htmlspecialchars(IPS_GetName($this->InstanceID), ENT_QUOTES),
             '__PHOTO__' => $this->VisuBackgroundCss(),
+            '__MODE__'  => $this->ResolveBackgroundMode(),
         ]);
 
         return $html . '<script>try{handleMessage(' . json_encode($this->VisuPayload()) . ');}catch(e){}</script>';
+    }
+
+    /**
+     * Effektiver Hintergrund-Modus der Kachel:
+     *  - auto    : Foto falls vorhanden, sonst Tageszeit-Aussicht
+     *  - daytime : gezeichnete Aussicht, Himmel wechselt nach Uhrzeit
+     *  - photo   : hochgeladenes Foto
+     *  - window  : statisch gezeichnetes Fenster (Himmel neutral)
+     */
+    private function ResolveBackgroundMode(): string
+    {
+        $mode = $this->ReadPropertyString('BackgroundMode');
+        $hasPhoto = trim($this->ReadPropertyString('BackgroundImage')) !== '';
+        if ($mode === 'auto') {
+            return $hasPhoto ? 'photo' : 'daytime';
+        }
+        if ($mode === 'photo' && !$hasPhoto) {
+            return 'daytime';
+        }
+        return $mode;
     }
 
     /**

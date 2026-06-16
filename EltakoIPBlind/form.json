@@ -36,9 +36,20 @@
             ]
         },
         {
+            "type": "Select",
+            "name": "BackgroundMode",
+            "caption": "Kachel-Hintergrund",
+            "options": [
+                { "caption": "Automatisch (Foto falls vorhanden, sonst Tageszeit)", "value": "auto" },
+                { "caption": "Tageszeit-Aussicht (Himmel wechselt über den Tag)", "value": "daytime" },
+                { "caption": "Eigenes Foto", "value": "photo" },
+                { "caption": "Schlichtes Fenster", "value": "window" }
+            ]
+        },
+        {
             "type": "SelectFile",
             "name": "BackgroundImage",
-            "caption": "Foto (Aussicht hinter dem Rollladen) – leer = gezeichnetes Fenster",
+            "caption": "Foto (nur bei 'Eigenes Foto'/'Automatisch') – Aussicht hinter dem Rollladen",
             "extensions": ".jpg,.jpeg,.png",
             "width": "420px"
         },
