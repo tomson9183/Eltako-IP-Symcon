@@ -55,6 +55,16 @@ class EltakoIPBlind extends IPSModule
         $this->EnableAction('Position');
 
         $this->RegisterTimer('Update', 0, 'ELTAKOIPBL_Update($_IPS[\'TARGET\']);');
+        // Mitlauf-Timer: lässt die Anzeige während der Fahrt synchron zum Motor laufen.
+        $this->RegisterTimer('Travel', 0, 'ELTAKOIPBL_TravelTick($_IPS[\'TARGET\']);');
+
+        // Fahrzeit (ms) für 0->100 %, aus den Geräteeinstellungen (Fallback 16 s).
+        $this->RegisterAttributeInteger('RuntimeMs', 16000);
+        // Mitlauf-Status.
+        $this->RegisterAttributeInteger('MoveFrom', 0);
+        $this->RegisterAttributeInteger('MoveTo', 0);
+        $this->RegisterAttributeString('MoveStart', '');
+        $this->RegisterAttributeBoolean('Traveling', false);
 
         // Eigene HTML-Kachel aktivieren.
         $this->SetVisualizationType(1);
@@ -87,7 +97,26 @@ class EltakoIPBlind extends IPSModule
         $interval = $this->ReadPropertyInteger('UpdateInterval');
         $this->SetTimerInterval('Update', $interval > 0 ? $interval * 1000 : 0);
 
-        $this->ValidateConfiguration();
+        // Travel-Timer bei Konfigurationsänderung stoppen.
+        $this->SetTimerInterval('Travel', 0);
+
+        // Fahrzeit aus den Geräteeinstellungen übernehmen (best effort, lokal).
+        if ($this->ValidateConfiguration()) {
+            $device = $this->EltakoGetDevice(
+                $this->ReadPropertyString('Host'),
+                $this->ReadPropertyString('APIKey'),
+                $this->ReadPropertyString('DeviceGuid')
+            );
+            if ($device !== null) {
+                $rt = $this->EltakoFindValue($device['settings'] ?? [], 'runtime', null);
+                if ($rt === null) {
+                    $rt = $this->EltakoFindValue($device['infos'] ?? [], 'maxRuntime', null);
+                }
+                if ($rt !== null && (int) $rt > 0) {
+                    $this->WriteAttributeInteger('RuntimeMs', (int) $rt);
+                }
+            }
+        }
     }
 
     public function GetConfigurationForm()
@@ -139,7 +168,9 @@ class EltakoIPBlind extends IPSModule
         );
 
         if ($ok) {
-            $this->ReflectPosition($Value);
+            // Anzeige NICHT sofort auf das Ziel springen lassen, sondern synchron zur
+            // physischen Fahrzeit mitlaufen lassen (Bestätigung per Rückmeldung am Ende).
+            $this->StartTravel($Value);
             $this->SetStatus(102);
         } else {
             $this->SetStatus(201);
@@ -149,7 +180,7 @@ class EltakoIPBlind extends IPSModule
     }
 
     /**
-     * Hält den Rollladen an: aktuelle Ist-Position lesen und als Ziel setzen.
+     * Hält den Rollladen an: Mitlauf stoppen, geschätzte Ist-Position als Ziel setzen.
      */
     public function Stop(): bool
     {
@@ -157,35 +188,127 @@ class EltakoIPBlind extends IPSModule
             return false;
         }
 
-        $device = $this->EltakoGetDevice(
-            $this->ReadPropertyString('Host'),
-            $this->ReadPropertyString('APIKey'),
-            $this->ReadPropertyString('DeviceGuid')
-        );
-
-        $raw = null;
-        if ($device !== null) {
-            $raw = $this->EltakoFindValue($device['infos'] ?? [], 'currentPosition', null);
-            if ($raw === null) {
-                $raw = $this->EltakoFindValue($device['functions'] ?? [], 'targetPosition', null);
-            }
-        }
-        if ($raw === null) {
-            $raw = $this->ToDevicePosition((int) $this->GetValue('Position'));
-        }
+        // Mitlauf beenden und aktuelle (geschätzte) Position ermitteln.
+        $this->SetTimerInterval('Travel', 0);
+        $this->WriteAttributeBoolean('Traveling', false);
+        $est = $this->EstimatePosition();
+        $this->WriteAttributeString('MoveStart', '');
 
         $ok = $this->EltakoSetNumber(
             $this->ReadPropertyString('Host'),
             $this->ReadPropertyString('APIKey'),
             $this->ReadPropertyString('DeviceGuid'),
             'targetPosition',
-            (float) $raw
+            (float) $this->ToDevicePosition($est)
         );
 
-        $this->ReflectPosition($this->FromDevicePosition((int) round((float) $raw)));
+        $this->ReflectPosition($est);
         $this->SetStatus($ok ? 102 : 201);
 
         return $ok;
+    }
+
+    // ---- Mitlauf (Anzeige fährt synchron zum Motor) -----------------------
+
+    /**
+     * Startet den Anzeige-Mitlauf zur Zielposition. Dauer = Fahrzeit des Geräts
+     * (runtime) * Weg/100. Am Ende wird per Rückmeldung (currentPosition) bestätigt.
+     */
+    private function StartTravel(int $target): void
+    {
+        $target = max(0, min(100, $target));
+        $from   = (int) $this->GetValue('Position');
+
+        $this->WriteAttributeInteger('MoveFrom', $from);
+        $this->WriteAttributeInteger('MoveTo', $target);
+        $this->WriteAttributeString('MoveStart', (string) microtime(true));
+
+        // Während der Fahrt die Tasten auf "Stop" (=fährt) spiegeln.
+        if (@$this->GetIDForIdent('Move') !== false && (int) $this->GetValue('Move') !== 1) {
+            $this->SetValue('Move', 1);
+        }
+
+        $rt = $this->ReadAttributeInteger('RuntimeMs');
+        if ($rt <= 0) {
+            $rt = 16000;
+        }
+        $dur = (int) round($rt * abs($target - $from) / 100);
+
+        if ($dur < 400 || $from === $target) {
+            // Kein nennenswerter Weg -> direkt setzen.
+            $this->SetTimerInterval('Travel', 0);
+            $this->WriteAttributeBoolean('Traveling', false);
+            $this->ReflectPosition($target);
+            return;
+        }
+
+        $this->WriteAttributeBoolean('Traveling', true);
+        $this->SetTimerInterval('Travel', 300);
+    }
+
+    /**
+     * Zeitbasierte Schätzung der aktuellen Position (während der Fahrt).
+     */
+    private function EstimatePosition(): int
+    {
+        $from  = (int) $this->ReadAttributeInteger('MoveFrom');
+        $to    = (int) $this->ReadAttributeInteger('MoveTo');
+        $start = (float) $this->ReadAttributeString('MoveStart');
+        $rt    = $this->ReadAttributeInteger('RuntimeMs');
+        if ($rt <= 0) {
+            $rt = 16000;
+        }
+        $dur = $rt * abs($to - $from) / 100;
+        if ($dur <= 0 || $start <= 0.0) {
+            return $to;
+        }
+        $elapsed = (microtime(true) - $start) * 1000.0;
+        $frac = $elapsed / $dur;
+        if ($frac > 1) {
+            $frac = 1;
+        }
+        if ($frac < 0) {
+            $frac = 0;
+        }
+        return (int) round($from + ($to - $from) * $frac);
+    }
+
+    /**
+     * Timer-Tick: schiebt die Anzeige gleichmäßig zur Zielposition (synchron zur Fahrzeit).
+     */
+    public function TravelTick(): void
+    {
+        $cur = $this->EstimatePosition();
+        if (@$this->GetIDForIdent('Position') !== false) {
+            $this->SetValue('Position', $cur);
+        }
+        $this->UpdateVisualizationValue($this->VisuPayload());
+
+        $from  = (int) $this->ReadAttributeInteger('MoveFrom');
+        $to    = (int) $this->ReadAttributeInteger('MoveTo');
+        $start = (float) $this->ReadAttributeString('MoveStart');
+        $rt    = $this->ReadAttributeInteger('RuntimeMs');
+        if ($rt <= 0) {
+            $rt = 16000;
+        }
+        $dur = $rt * abs($to - $from) / 100;
+
+        if (($start > 0.0 && (microtime(true) - $start) * 1000.0 >= $dur) || $cur === $to) {
+            $this->FinishTravel();
+        }
+    }
+
+    /**
+     * Fahrt beenden, Zielposition setzen und mit der echten Rückmeldung bestätigen.
+     */
+    private function FinishTravel(): void
+    {
+        $this->SetTimerInterval('Travel', 0);
+        $this->WriteAttributeBoolean('Traveling', false);
+        $this->ReflectPosition((int) $this->ReadAttributeInteger('MoveTo'));
+        $this->WriteAttributeString('MoveStart', '');
+        // Echte Ist-Position vom Gerät holen und Anzeige bestätigen/korrigieren.
+        $this->Update();
     }
 
     /**
@@ -220,6 +343,11 @@ class EltakoIPBlind extends IPSModule
     public function Update(): void
     {
         if (!$this->ValidateConfiguration()) {
+            return;
+        }
+
+        // Während einer laufenden Anzeige-Fahrt nicht überschreiben.
+        if ($this->ReadAttributeBoolean('Traveling')) {
             return;
         }
 
