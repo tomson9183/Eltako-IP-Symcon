@@ -68,70 +68,92 @@
     rsFit();
   }
 
-  // ---- Tageszeit-Aussicht (Canvas) ----
+  // ---- Tageszeit-Aussicht (Canvas), realistisch ----
   function lerp(a,b,t){ return a+(b-a)*t; }
   function mix(c1,c2,t){ return [Math.round(lerp(c1[0],c2[0],t)),Math.round(lerp(c1[1],c2[1],t)),Math.round(lerp(c1[2],c2[2],t))]; }
   function rgb(c){ return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }
-  // Farb-Stops je Stunde: [hour, topColor, bottomColor]
+  // Farb-Stops je Stunde: [hour, top, mitte, horizont]
   var SKY=[
-    [0,  [11,16,38],   [26,35,72]],
-    [6,  [32,48,79],   [232,160,96]],
-    [8,  [95,168,224], [207,234,255]],
-    [13, [63,134,214], [191,227,255]],
-    [18, [42,74,122],  [255,178,122]],
-    [20, [22,32,74],   [58,42,74]],
-    [24, [11,16,38],   [26,35,72]]
+    [0,   [7,11,28],    [13,20,46],   [22,30,66]],
+    [5.5, [20,30,60],   [60,70,110],  [150,110,120]],
+    [7,   [70,130,200], [170,190,210],[255,180,120]],
+    [9,   [70,150,225], [150,205,240],[205,235,255]],
+    [13,  [58,128,210], [120,190,235],[190,225,255]],
+    [17,  [70,135,205], [150,195,235],[222,224,232]],
+    [19,  [45,70,120],  [180,110,90], [255,150,80]],
+    [20.5,[25,35,75],   [70,55,90],   [120,70,90]],
+    [22,  [9,14,34],    [15,22,50],   [24,32,68]],
+    [24,  [7,11,28],    [13,20,46],   [22,30,66]]
   ];
   function skyAt(hr){
     for(var i=0;i<SKY.length-1;i++){
       if(hr>=SKY[i][0] && hr<=SKY[i+1][0]){
         var t=(hr-SKY[i][0])/(SKY[i+1][0]-SKY[i][0]);
-        return [mix(SKY[i][1],SKY[i+1][1],t), mix(SKY[i][2],SKY[i+1][2],t)];
+        return [mix(SKY[i][1],SKY[i+1][1],t), mix(SKY[i][2],SKY[i+1][2],t), mix(SKY[i][3],SKY[i+1][3],t)];
       }
     }
-    return [SKY[0][1],SKY[0][2]];
+    return [SKY[0][1],SKY[0][2],SKY[0][3]];
   }
-  var rsStars=null;
+  function puff(ctx,x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+  var rsStars=null, rsClouds=[[0.20,0.20,1.0],[0.58,0.14,1.25],[0.80,0.30,0.85]];
   function drawSky(){
     var c=document.getElementById('rsSky'); if(!c) return;
-    var w=c.clientWidth||210, h=c.clientHeight||158;
-    c.width=w; c.height=h;
+    var w=c.clientWidth||210, h=c.clientHeight||158; c.width=w; c.height=h;
     var ctx=c.getContext('2d');
     var now=new Date(); var hr=now.getHours()+now.getMinutes()/60;
     var cols=skyAt(hr);
     var g=ctx.createLinearGradient(0,0,0,h);
-    g.addColorStop(0,rgb(cols[0])); g.addColorStop(1,rgb(cols[1]));
+    g.addColorStop(0,rgb(cols[0])); g.addColorStop(0.55,rgb(cols[1])); g.addColorStop(1,rgb(cols[2]));
     ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
 
-    var night = (hr<5.3 || hr>20.2);
-    var dusk  = (hr>=18 && hr<=20.5) || (hr>=5 && hr<=7);
-    // Sterne nachts
-    if(night){
-      if(!rsStars){ rsStars=[]; for(var i=0;i<28;i++){ rsStars.push([Math.random(),Math.random()*0.6]); } }
-      ctx.fillStyle='rgba(255,255,255,0.9)';
-      for(var s=0;s<rsStars.length;s++){ ctx.fillRect(rsStars[s][0]*w, rsStars[s][1]*h, 1.4,1.4); }
+    var night=(hr<5.0 || hr>20.8);
+    var sunUp=(hr>=6.0 && hr<=19.2);
+    var altSun= sunUp ? Math.sin(((hr-6.0)/(19.2-6.0))*Math.PI) : 0;
+
+    // Sterne (abgestuft ein-/ausblenden)
+    var starA=(hr<4.8)?1:(hr<6?(6-hr)/1.2:(hr>21?Math.min(1,(hr-21)/1.0):0));
+    if(starA>0){
+      if(!rsStars){ rsStars=[]; for(var i=0;i<34;i++){ rsStars.push([Math.random(),Math.random()*0.62,0.4+Math.random()*0.6]); } }
+      for(var s=0;s<rsStars.length;s++){ ctx.fillStyle='rgba(255,255,255,'+(starA*rsStars[s][2]).toFixed(2)+')';
+        var ss=rsStars[s][2]>0.8?1.7:1.1; ctx.fillRect(rsStars[s][0]*w, rsStars[s][1]*h, ss, ss); }
     }
-    // Sonne (6.5..18.5) bzw. Mond (sonst)
-    var sunUp = (hr>=6.3 && hr<=18.7);
-    var prog, cx, cy;
+
     if(sunUp){
-      prog=(hr-6.3)/(18.7-6.3);
-      cx=prog*w; cy=h*0.92 - Math.sin(prog*Math.PI)*h*0.72;
-      var grd=ctx.createRadialGradient(cx,cy,2,cx,cy,26);
-      grd.addColorStop(0,'rgba(255,236,150,0.95)'); grd.addColorStop(1,'rgba(255,210,90,0)');
-      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(cx,cy,26,0,7); ctx.fill();
-      ctx.fillStyle= dusk ? '#ff9d4d' : '#ffd451';
-      ctx.beginPath(); ctx.arc(cx,cy,9,0,7); ctx.fill();
-    } else {
-      var nh = (hr>18.7) ? (hr-18.7) : (hr+5.3);
-      prog = nh/(24-18.7+6.3); cx=prog*w; cy=h*0.85 - Math.sin(prog*Math.PI)*h*0.55;
-      ctx.fillStyle='#e9edf5'; ctx.beginPath(); ctx.arc(cx,cy,7,0,7); ctx.fill();
-      ctx.fillStyle=rgb(cols[0]); ctx.beginPath(); ctx.arc(cx+3,cy-2,6,0,7); ctx.fill();
+      var prog=(hr-6.0)/(19.2-6.0), cx=prog*w, cy=h*0.96-altSun*h*0.78;
+      var hal=ctx.createRadialGradient(cx,cy,2,cx,cy,46);
+      hal.addColorStop(0,'rgba(255,240,170,0.55)'); hal.addColorStop(1,'rgba(255,220,120,0)');
+      ctx.fillStyle=hal; ctx.beginPath(); ctx.arc(cx,cy,46,0,7); ctx.fill();
+      ctx.fillStyle=rgb(mix([255,150,70],[255,225,120],altSun));
+      ctx.beginPath(); ctx.arc(cx,cy,8.5,0,7); ctx.fill();
+    } else if(night){
+      var nh=(hr>19.2)?(hr-19.2):(hr+4.8), p2=nh/((24-19.2)+6.0);
+      var mx=p2*w, my=h*0.82-Math.sin(p2*Math.PI)*h*0.60;
+      ctx.fillStyle='rgba(245,247,252,0.95)'; ctx.beginPath(); ctx.arc(mx,my,7.5,0,7); ctx.fill();
+      ctx.fillStyle=rgb(cols[0]); ctx.beginPath(); ctx.arc(mx+3.5,my-2.5,6.5,0,7); ctx.fill();
     }
-    // Wiese unten
-    ctx.fillStyle = night ? '#1d3a23' : '#6fae5a';
-    ctx.beginPath(); ctx.moveTo(0,h); ctx.lineTo(0,h*0.82);
-    ctx.quadraticCurveTo(w*0.5,h*0.74,w,h*0.82); ctx.lineTo(w,h); ctx.closePath(); ctx.fill();
+
+    // Wolken (tagsueber; in der Daemmerung warm getoent; nachts aus)
+    var cloudA= night?0:(0.85*Math.min(1,Math.max(0.12,altSun+0.25)));
+    if(cloudA>0.05){
+      var ctint=(hr<7||hr>18)?'255,200,170':'255,255,255';
+      for(var k=0;k<rsClouds.length;k++){
+        var clx=rsClouds[k][0]*w, cly=rsClouds[k][1]*h, sc=rsClouds[k][2];
+        ctx.fillStyle='rgba('+ctint+','+(cloudA*0.9).toFixed(2)+')';
+        puff(ctx,clx,cly,9*sc); puff(ctx,clx+9*sc,cly+3*sc,12*sc); puff(ctx,clx+20*sc,cly,9*sc); puff(ctx,clx+10*sc,cly-5*sc,9*sc);
+      }
+    }
+
+    // Landschaft: zwei gestaffelte Huegel + Baum-Silhouette
+    ctx.fillStyle=rgb(night?[34,60,40]:[140,190,120]);
+    ctx.beginPath(); ctx.moveTo(0,h); ctx.lineTo(0,h*0.80);
+    ctx.quadraticCurveTo(w*0.35,h*0.70,w*0.70,h*0.80); ctx.quadraticCurveTo(w*0.88,h*0.85,w,h*0.79); ctx.lineTo(w,h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=rgb(night?[20,42,26]:[95,160,80]);
+    ctx.beginPath(); ctx.moveTo(0,h); ctx.lineTo(0,h*0.88);
+    ctx.quadraticCurveTo(w*0.5,h*0.80,w,h*0.88); ctx.lineTo(w,h); ctx.closePath(); ctx.fill();
+    var tc=night?[16,30,20]:[58,108,54], tx=w*0.15, ty=h*0.87;
+    ctx.fillStyle=rgb(night?[40,28,18]:[90,62,40]); ctx.fillRect(tx-1.5,ty-6,3,12);
+    ctx.fillStyle=rgb(tc); ctx.beginPath(); ctx.arc(tx,ty-10,9,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(tx-6,ty-6,6,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(tx+6,ty-6,6,0,7); ctx.fill();
   }
 
   function rsFit(){
