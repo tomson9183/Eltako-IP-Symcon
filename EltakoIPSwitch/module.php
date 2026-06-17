@@ -81,8 +81,7 @@ class EltakoIPSwitch extends IPSModule
             return '';
         }
 
-        $this->Update();
-
+        // Kein blockierender Geräteaufruf beim Kachel-Laden (sonst "Load failed, /api/").
         $file = __DIR__ . '/visu_' . $style . '.html';
         if (!file_exists($file)) {
             $file = __DIR__ . '/visu_lamp.html';

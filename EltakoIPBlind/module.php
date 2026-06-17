@@ -35,6 +35,8 @@ class EltakoIPBlind extends IPSModule
         $this->RegisterPropertyString('BackgroundMode', 'auto');
         // Eigenes Foto (Base64) als Aussicht hinter dem Rollladen.
         $this->RegisterPropertyString('BackgroundImage', '');
+        // Verkleinerte Variante des Fotos für die Kachel (klein -> schnelles Laden).
+        $this->RegisterAttributeString('BackgroundImageProcessed', '');
         $this->RegisterPropertyInteger('UpdateInterval', 0);
 
         // Auf/Stop/Zu als nebeneinanderliegende Tasten (moderne Presentation-API).
@@ -97,26 +99,58 @@ class EltakoIPBlind extends IPSModule
         $interval = $this->ReadPropertyInteger('UpdateInterval');
         $this->SetTimerInterval('Update', $interval > 0 ? $interval * 1000 : 0);
 
-        // Travel-Timer bei Konfigurationsänderung stoppen.
+        // Travel-Timer bei Konfigurationsänderung stoppen und Mitlauf-Status zurücksetzen.
+        // (Hier bewusst KEIN Geräteaufruf, damit ApplyChanges nicht blockiert.)
         $this->SetTimerInterval('Travel', 0);
+        $this->WriteAttributeBoolean('Traveling', false);
 
-        // Fahrzeit aus den Geräteeinstellungen übernehmen (best effort, lokal).
-        if ($this->ValidateConfiguration()) {
-            $device = $this->EltakoGetDevice(
-                $this->ReadPropertyString('Host'),
-                $this->ReadPropertyString('APIKey'),
-                $this->ReadPropertyString('DeviceGuid')
-            );
-            if ($device !== null) {
-                $rt = $this->EltakoFindValue($device['settings'] ?? [], 'runtime', null);
-                if ($rt === null) {
-                    $rt = $this->EltakoFindValue($device['infos'] ?? [], 'maxRuntime', null);
-                }
-                if ($rt !== null && (int) $rt > 0) {
-                    $this->WriteAttributeInteger('RuntimeMs', (int) $rt);
-                }
-            }
+        // Hochgeladenes Foto einmalig verkleinern (kleine Kachel -> kein "Load failed").
+        $this->PrepareBackgroundImage();
+
+        $this->ValidateConfiguration();
+    }
+
+    /**
+     * Verkleinert das hochgeladene Foto (max. 900 px breit, JPEG) und legt es als
+     * Attribut ab. Verhindert riesige Kachel-Inhalte. Ohne GD bleibt das Original.
+     */
+    private function PrepareBackgroundImage(): void
+    {
+        $raw = trim($this->ReadPropertyString('BackgroundImage'));
+        if ($raw === '' || stripos($raw, 'data:') === 0 || !function_exists('imagecreatefromstring')) {
+            $this->WriteAttributeString('BackgroundImageProcessed', '');
+            return;
         }
+
+        $bin = base64_decode($raw, true);
+        if ($bin === false) {
+            $this->WriteAttributeString('BackgroundImageProcessed', '');
+            return;
+        }
+
+        $im = @imagecreatefromstring($bin);
+        if ($im === false) {
+            $this->WriteAttributeString('BackgroundImageProcessed', '');
+            return;
+        }
+
+        $w = imagesx($im);
+        $h = imagesy($im);
+        $maxW = 900;
+        if ($w > $maxW) {
+            $nh = (int) round($h * $maxW / $w);
+            $dst = imagecreatetruecolor($maxW, $nh);
+            imagecopyresampled($dst, $im, 0, 0, 0, 0, $maxW, $nh, $w, $h);
+            imagedestroy($im);
+            $im = $dst;
+        }
+
+        ob_start();
+        imagejpeg($im, null, 80);
+        $data = ob_get_clean();
+        imagedestroy($im);
+
+        $this->WriteAttributeString('BackgroundImageProcessed', $data !== false ? base64_encode($data) : '');
     }
 
     public function GetConfigurationForm()
@@ -385,6 +419,15 @@ class EltakoIPBlind extends IPSModule
             $this->SetValue('Power', (float) $power);
         }
 
+        // Fahrzeit (für den Anzeige-Mitlauf) bei Gelegenheit aus dem Gerät übernehmen.
+        $rt = $this->EltakoFindValue($device['settings'] ?? [], 'runtime', null);
+        if ($rt === null) {
+            $rt = $this->EltakoFindValue($device['infos'] ?? [], 'maxRuntime', null);
+        }
+        if ($rt !== null && (int) $rt > 0) {
+            $this->WriteAttributeInteger('RuntimeMs', (int) $rt);
+        }
+
         $this->SetStatus(102);
     }
 
@@ -392,9 +435,9 @@ class EltakoIPBlind extends IPSModule
 
     public function GetVisualizationTile()
     {
-        // Beim Öffnen frische Werte holen.
-        $this->Update();
-
+        // WICHTIG: hier KEIN blockierender Geräteaufruf (kein Update()), sonst kann das
+        // Laden der Kachel über /api/ scheitern ("Load failed"). Es wird der zuletzt
+        // bekannte Wert angezeigt; die Aktualisierung läuft über Timer/Polling.
         $html = file_get_contents(__DIR__ . '/visualization.html');
         $html = strtr($html, [
             '__THEME__' => $this->VisuThemeClass(),
@@ -432,7 +475,11 @@ class EltakoIPBlind extends IPSModule
      */
     private function VisuBackgroundCss(): string
     {
-        $img = trim($this->ReadPropertyString('BackgroundImage'));
+        // Bevorzugt die verkleinerte Variante (klein -> schnelles Laden der Kachel).
+        $img = trim($this->ReadAttributeString('BackgroundImageProcessed'));
+        if ($img === '') {
+            $img = trim($this->ReadPropertyString('BackgroundImage'));
+        }
         if ($img === '') {
             return 'linear-gradient(180deg,#bfe3ff 0%,#eaf6ff 60%,#eaf6e0 100%)';
         }
